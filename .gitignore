@@ -1,4 +1,6 @@
 data
 fairseq
 MeloTTS
+melo/tmp_test
+melo/logs
 *.pyc
