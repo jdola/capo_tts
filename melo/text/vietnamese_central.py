@@ -1,7 +1,7 @@
 import os
 import re
 
-from melo.text.vietnamese_utils.g2p import (
+from .vietnamese_utils.g2p import (
     global_vi_phonemizer_central as global_vi_phonemizer,
 )
 from phonemizer.separator import Separator

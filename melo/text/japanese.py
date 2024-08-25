@@ -612,7 +612,7 @@ def g2p(norm_text):
     return phones, tones, word2ph
 
 def get_bert_feature(text, word2ph, device):
-    from melo.text import japanese_bert
+    from text import japanese_bert
 
     return japanese_bert.get_bert_feature(text, word2ph, device=device)
 

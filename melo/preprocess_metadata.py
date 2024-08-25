@@ -1,5 +1,5 @@
-from melo.text.symbols import symbols
-from melo.text.cleaner import language_module_map, clean_text
+from text.symbols import symbols
+from text.cleaner import language_module_map, clean_text
 import pandas as pd
 import sys
 

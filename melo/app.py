@@ -4,7 +4,7 @@ import gradio as gr
 import os, torch, io
 # os.system('python -m unidic download')
 print("Make sure you've downloaded unidic (python -m unidic download) for this WebUI to work.")
-from melo.api import TTS
+from api import TTS
 speed = 1.0
 import tempfile
 import click

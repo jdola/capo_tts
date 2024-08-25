@@ -25,7 +25,7 @@ def main(text, file, output_path, language, speaker, speed, device):
     if speaker == '': speaker = None
     if (not language == 'EN') and speaker:
         warnings.warn('You specified a speaker but the language is English.')
-    from melo.api import TTS
+    from api import TTS
     model = TTS(language=language, device=device)
     speaker_ids = model.hps.data.spk2id
     if language == 'EN':

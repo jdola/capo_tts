@@ -260,7 +260,7 @@ def g2p(text, pad_start_end=True, tokenized=None):
     return phones, tones, word2ph
 
 def get_bert_feature(text, word2ph, device=None):
-    from melo.text import english_bert
+    from text import english_bert
 
     return english_bert.get_bert_feature(text, word2ph, device=device)
 

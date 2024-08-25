@@ -1,5 +1,5 @@
 from . import chinese, japanese, english, chinese_mix, korean, french, spanish, vietnamese_south, vietnamese_north, vietnamese_central, tagalog
-from . import cleaned_text_to_sequence
+from . import cleaned_text_to_sequence, get_bert
 import copy
 
 language_module_map = {"VI-SOUTH": vietnamese_south, "VI-NORTH": vietnamese_north, "VI-CENTRAL": vietnamese_central,
@@ -23,7 +23,8 @@ def clean_text_bert(text, language, device=None):
     for i in range(len(word2ph)):
         word2ph[i] = word2ph[i] * 2
     word2ph[0] += 1
-    bert = language_module.get_bert_feature(norm_text, word2ph, device=device)
+    # bert = language_module.get_bert_feature(norm_text, word2ph, device=device)
+    bert = get_bert(norm_text, word2ph, language, device)
     
     return norm_text, phones, tones, word2ph_bak, bert
 

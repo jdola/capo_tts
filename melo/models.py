@@ -3,20 +3,20 @@ import torch
 from torch import nn
 from torch.nn import functional as F
 
-from melo import commons
-from melo import modules
-from melo import attentions
+import commons
+import modules
+import attentions
 
 from torch.nn import Conv1d, ConvTranspose1d, Conv2d
 from torch.nn.utils import weight_norm, remove_weight_norm, spectral_norm
 
-from melo.trt_utils import load_engine, run_trt_engine
-from melo.trt_utils import (
+from trt_utils import load_engine, run_trt_engine
+from trt_utils import (
     prepare_dec_inputs
 )
 
-from melo.commons import init_weights, get_padding
-import melo.monotonic_align as monotonic_align
+from commons import init_weights, get_padding
+import monotonic_align
 
 
 class DurationDiscriminator(nn.Module):  # vits2
@@ -330,9 +330,9 @@ class TextEncoder(nn.Module):
     ):
         super().__init__()
         if num_languages is None:
-            from melo.text import num_languages
+            from text.symbols import num_languages
         if num_tones is None:
-            from melo.text import num_tones
+            from text.symbols import num_tones
         self.n_vocab = n_vocab
         self.out_channels = out_channels
         self.hidden_channels = hidden_channels
@@ -365,6 +365,7 @@ class TextEncoder(nn.Module):
     def forward(self, x, x_lengths, tone, language, bert, ja_bert, g=None):
         bert_emb = self.bert_proj(bert).transpose(1, 2)
         ja_bert_emb = self.ja_bert_proj(ja_bert).transpose(1, 2)
+        # print("Dont get bert emb")
         x = (
             self.emb(x)
             + self.tone_emb(tone)
@@ -374,15 +375,19 @@ class TextEncoder(nn.Module):
         ) * math.sqrt(
             self.hidden_channels
         )  # [b, t, h]
+        # print("Dont get x 1")
         x = torch.transpose(x, 1, -1)  # [b, h, t]
         x_mask = torch.unsqueeze(commons.sequence_mask(x_lengths, x.size(2)), 1).to(
             x.dtype
         )
+        # print("Dont get x and xmask")
 
         x = self.encoder(x * x_mask, x_mask, g=g)
         stats = self.proj(x) * x_mask
+        # print("Dont get x and stats")
 
         m, logs = torch.split(stats, self.out_channels, dim=1)
+        # print("Dont get m")
         return x, m, logs, x_mask
 
 
@@ -835,6 +840,17 @@ class SynthesizerTrn(nn.Module):
             num_languages=num_languages,
             num_tones=num_tones,
         )
+        # print(n_vocab)
+        # print(inter_channels)
+        # print(hidden_channels)
+        # print(filter_channels)
+        # print(n_heads)
+        # print(n_layers)
+        # print(kernel_size)
+        # print(p_dropout)
+        # print(self.enc_gin_channels)
+        # print(num_languages)
+        # print(num_tones)
         self.dec = Generator(
             inter_channels,
             resblock,
@@ -907,15 +923,20 @@ class SynthesizerTrn(nn.Module):
             g = self.emb_g(sid).unsqueeze(-1)  # [b, h, 1]
         else:
             g = self.ref_enc(y.transpose(1, 2)).unsqueeze(-1)
+        # print("Done with spekers")
         if self.use_vc:
             g_p = None
         else:
             g_p = g
+            # print("Done do not use vc", g_p)
         x, m_p, logs_p, x_mask = self.enc_p(
             x, x_lengths, tone, language, bert, ja_bert, g=g_p
         )
+        # print("Done with enc_p")
         z, m_q, logs_q, y_mask = self.enc_q(y, y_lengths, g=g)
+        # print("Done with enc_q")
         z_p = self.flow(z, y_mask, g=g)
+        # print("Done with flow")
 
         with torch.no_grad():
             # negative cross-entropy
@@ -933,6 +954,7 @@ class SynthesizerTrn(nn.Module):
                 -0.5 * (m_p**2) * s_p_sq_r, [1], keepdim=True
             )  # [b, 1, t_s]
             neg_cent = neg_cent1 + neg_cent2 + neg_cent3 + neg_cent4
+            # print("Done neg_cent")
             if self.use_noise_scaled_mas:
                 epsilon = (
                     torch.std(neg_cent)
@@ -940,13 +962,14 @@ class SynthesizerTrn(nn.Module):
                     * self.current_mas_noise_scale
                 )
                 neg_cent = neg_cent + epsilon
-
+                # print("Done use_noise_scaled_mas neg_cent")
             attn_mask = torch.unsqueeze(x_mask, 2) * torch.unsqueeze(y_mask, -1)
             attn = (
                 monotonic_align.maximum_path(neg_cent, attn_mask.squeeze(1))
                 .unsqueeze(1)
                 .detach()
             )
+            # print("Done attn")
 
         w = attn.sum(2)
 
@@ -960,6 +983,7 @@ class SynthesizerTrn(nn.Module):
         )  # for averaging
 
         l_length = l_length_dp + l_length_sdp
+        # print("Done l_length")
 
         # expand prior
         m_p = torch.matmul(attn.squeeze(1), m_p.transpose(1, 2)).transpose(1, 2)
@@ -969,6 +993,7 @@ class SynthesizerTrn(nn.Module):
             z, y_lengths, self.segment_size
         )
         o = self.dec(z_slice, g=g)
+        # print("Done o")
         return (
             o,
             l_length,

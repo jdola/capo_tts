@@ -1,5 +1,6 @@
 # flake8: noqa: E402
-
+import warnings 
+warnings.filterwarnings("ignore")
 import os
 import torch
 from torch.nn import functional as F
@@ -10,6 +11,7 @@ from torch.nn.parallel import DistributedDataParallel as DDP
 from torch.cuda.amp import autocast, GradScaler
 from tqdm import tqdm
 import logging
+import pickle
 
 logging.getLogger("numba").setLevel(logging.WARNING)
 import commons
@@ -27,7 +29,7 @@ from models import (
 from losses import generator_loss, discriminator_loss, feature_loss, kl_loss
 from mel_processing import mel_spectrogram_torch, spec_to_mel_torch
 from text.symbols import symbols
-from melo.download_utils import load_pretrain_model
+from download_utils import load_pretrain_model
 
 torch.backends.cuda.matmul.allow_tf32 = True
 torch.backends.cudnn.allow_tf32 = (
@@ -141,6 +143,15 @@ def run():
         noise_scale_delta=noise_scale_delta,
         **hps.model,
     ).cuda(rank)
+    # print("init info")
+    # print(len(symbols))
+    # print(hps.data.filter_length // 2 + 1)
+    # print(hps.train.segment_size // hps.data.hop_length)
+    # print(hps.data.n_speakers)
+    # print(mas_noise_scale_initial)
+    # print(noise_scale_delta)
+    # print(hps.model)  
+    # print(hps)      
 
     net_d = MultiPeriodDiscriminator(hps.model.use_spectral_norm).cuda(rank)
     optim_g = torch.optim.AdamW(
@@ -166,6 +177,7 @@ def run():
         optim_dur_disc = None
     net_g = DDP(net_g, device_ids=[rank], find_unused_parameters=True)
     net_d = DDP(net_d, device_ids=[rank], find_unused_parameters=True)
+    # print("done init net g net d")
     
     # pretrain_G, pretrain_D, pretrain_dur = load_pretrain_model()
     # hps.pretrain_G = hps.pretrain_G or pretrain_G
@@ -236,20 +248,25 @@ def run():
         print(e)
         epoch_str = 1
         global_step = 0
+    # print("Done load checkpoint if available")
 
     scheduler_g = torch.optim.lr_scheduler.ExponentialLR(
         optim_g, gamma=hps.train.lr_decay, last_epoch=epoch_str - 2
     )
+    # print("Done init scheduler g")
     scheduler_d = torch.optim.lr_scheduler.ExponentialLR(
         optim_d, gamma=hps.train.lr_decay, last_epoch=epoch_str - 2
     )
+    # print("Done init scheduler d")
     if net_dur_disc is not None:
         scheduler_dur_disc = torch.optim.lr_scheduler.ExponentialLR(
             optim_dur_disc, gamma=hps.train.lr_decay, last_epoch=epoch_str - 2
         )
     else:
         scheduler_dur_disc = None
+    # print("Done init scheduler dur disc")
     scaler = GradScaler(enabled=hps.train.fp16_run)
+    # print("Start train")
 
     for epoch in range(epoch_str, hps.train.epochs + 1):
         try:
@@ -279,6 +296,7 @@ def run():
                     None,
                     None,
                 )
+            # print("Done epoch", rank)
         except Exception as e:
             print(f"Epoch {epoch} Error: {e}")
             torch.cuda.empty_cache()
@@ -301,11 +319,15 @@ def train_and_evaluate(
 
     train_loader.batch_sampler.set_epoch(epoch)
     global global_step
+    # print("Done set data epoch")
 
     net_g.train()
+    # print("Done set train g")
     net_d.train()
+    # print("Done set train d")
     if net_dur_disc is not None:
         net_dur_disc.train()
+        # print("Done set train dur disc")
     for batch_idx, (
         x,
         x_lengths,
@@ -328,19 +350,43 @@ def train_and_evaluate(
         x, x_lengths = x.cuda(rank, non_blocking=True), x_lengths.cuda(
             rank, non_blocking=True
         )
+        # print("Done load data x")
         spec, spec_lengths = spec.cuda(rank, non_blocking=True), spec_lengths.cuda(
             rank, non_blocking=True
         )
+        # print("Done load data spec")
         y, y_lengths = y.cuda(rank, non_blocking=True), y_lengths.cuda(
             rank, non_blocking=True
         )
+        # print("Done load data y")
         speakers = speakers.cuda(rank, non_blocking=True)
+        # print("Done load data speakers")
         tone = tone.cuda(rank, non_blocking=True)
+        # print("Done load data tone")
         language = language.cuda(rank, non_blocking=True)
         bert = bert.cuda(rank, non_blocking=True)
         ja_bert = ja_bert.cuda(rank, non_blocking=True)
+        # print("Done load data")
 
         with autocast(enabled=hps.train.fp16_run):
+            # torch.save(x,"tmp_test/x.pt")
+            # torch.save(x_lengths,"tmp_test/x_lengths.pt")
+            # torch.save(spec,"tmp_test/spec.pt")
+            # torch.save(spec_lengths,"tmp_test/spec_lengths.pt")
+            # torch.save(speakers,"tmp_test/speakers.pt")
+            # torch.save(tone,"tmp_test/tone.pt")
+            # torch.save(language,"tmp_test/language.pt")
+            # torch.save(bert,"tmp_test/bert.pt")
+            # torch.save(ja_bert,"tmp_test/ja_bert.pt")
+            # print("x",x.shape)
+            # print("x_lengths",x_lengths)
+            # print("spec",spec.shape)
+            # print("spec_lengths",spec_lengths)
+            # print("speakers",speakers)
+            # print("tone",tone)
+            # print("language",language)
+            # print("bert",bert.shape)
+            # print("ja_bert",ja_bert.shape)
             (
                 y_hat,
                 l_length,
@@ -361,6 +407,7 @@ def train_and_evaluate(
                 bert,
                 ja_bert,
             )
+            # print("Start mel load")
             mel = spec_to_mel_torch(
                 spec,
                 hps.data.filter_length,
@@ -369,6 +416,7 @@ def train_and_evaluate(
                 hps.data.mel_fmin,
                 hps.data.mel_fmax,
             )
+            # print("Done mel load")
             y_mel = commons.slice_segments(
                 mel, ids_slice, hps.train.segment_size // hps.data.hop_length
             )
@@ -382,6 +430,7 @@ def train_and_evaluate(
                 hps.data.mel_fmin,
                 hps.data.mel_fmax,
             )
+            # print("Done y_hat_mel load")
 
             y = commons.slice_segments(
                 y, ids_slice * hps.data.hop_length, hps.train.segment_size
@@ -411,6 +460,7 @@ def train_and_evaluate(
                 scaler.unscale_(optim_dur_disc)
                 commons.clip_grad_value_(net_dur_disc.parameters(), None)
                 scaler.step(optim_dur_disc)
+        # print("Done disc")
 
         optim_d.zero_grad()
         scaler.scale(loss_disc_all).backward()
@@ -434,6 +484,7 @@ def train_and_evaluate(
                 if net_dur_disc is not None:
                     loss_dur_gen, losses_dur_gen = generator_loss(y_dur_hat_g)
                     loss_gen_all += loss_dur_gen
+        # print("Done gen")
         optim_g.zero_grad()
         scaler.scale(loss_gen_all).backward()
         scaler.unscale_(optim_g)

@@ -177,7 +177,7 @@ def text_normalize(text):
 
 
 def get_bert_feature(text, word2ph, device=None):
-    from melo.text import chinese_bert
+    from text import chinese_bert
 
     return chinese_bert.get_bert_feature(text, word2ph, device=device)
 
