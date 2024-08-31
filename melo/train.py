@@ -177,6 +177,8 @@ def run():
         optim_dur_disc = None
     net_g = DDP(net_g, device_ids=[rank], find_unused_parameters=True)
     net_d = DDP(net_d, device_ids=[rank], find_unused_parameters=True)
+    # net_g = DDP(net_g, device_ids=[rank], find_unused_parameters=False)
+    # net_d = DDP(net_d, device_ids=[rank], find_unused_parameters=False)
     # print("done init net g net d")
     
     # pretrain_G, pretrain_D, pretrain_dur = load_pretrain_model()
@@ -201,6 +203,7 @@ def run():
  
     if net_dur_disc is not None:
         net_dur_disc = DDP(net_dur_disc, device_ids=[rank], find_unused_parameters=True)
+        # net_dur_disc = DDP(net_dur_disc, device_ids=[rank], find_unused_parameters=False)
         if hps.pretrain_dur:
             utils.load_checkpoint(
                     hps.pretrain_dur,

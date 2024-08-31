@@ -3,4 +3,5 @@ fairseq
 MeloTTS
 melo/tmp_test
 melo/logs
+pretrained_models
 *.pyc
